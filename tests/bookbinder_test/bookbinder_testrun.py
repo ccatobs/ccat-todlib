@@ -38,6 +38,6 @@ bbrun.bind(pbar=True)
 '''
 python bookbinder_testrun.py \
 -r /data/shwetha \
--o /data/shwetha/bb_output/bbv0 \
+-o /data/shwetha/bb_output/bbv1 \
 -d /data/shwetha/det_files/rfsoc01_drone1/
 '''

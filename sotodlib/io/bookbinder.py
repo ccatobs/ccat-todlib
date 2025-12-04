@@ -544,7 +544,7 @@ class AncilProcessor:
             if k not in frame:
                 frame[k] = np.nan
 
-class SmurfStreamProcessor:
+class RfsocStreamProcessor:
     def __init__(self, obs_id, files, book_id, readout_ids,
                  log=None, allow_bad_timing=False, min_ctime=None,
                  max_ctime=None):
@@ -580,15 +580,14 @@ class SmurfStreamProcessor:
         if self.times is not None:  # Already preprocessed
             return
 
-        self.log.info(f"Preprocessing smurf obsid {self.obs_id}")
+        self.log.info(f"Preprocessing rfsoc obsid {self.obs_id}")
 
         self.nframes = 0
         ts = []
-        smurf_frame_counters = [] # smurf frame-counter
         fc_idx = None
         frame_idxs = []
         frame_idx = 0
-        timing = True
+        rfsoc_frame_counters = []
         for frame in get_frame_iter(self.files):
             if frame.type != core.G3FrameType.Scan:
                 continue
@@ -598,18 +597,13 @@ class SmurfStreamProcessor:
                 self.nchans = len(self.readout_ids)
                 self.primary_names = frame['primary'].names
                 fc_idx = list(self.primary_names).index("FrameCounter")
-                self.bias_names = frame['tes_biases'].names
-                self.timing_paradigm = frame['timing_paradigm']
+                # self.timing_paradigm = 'High Precision'
                 self.session_id = frame['session_id']
-                if 'slow_primary' in frame:
-                    self.slow_primary = frame['slow_primary']
-                self.sostream_version = frame['sostream_version']
-                self.stream_id = frame['sostream_id']
 
-            good, t = get_frame_times(frame, self.allow_bad_timing)
-            timing = timing and good
+            # time = np.array(t)/time_precision
+            t = np.array(frame['data'].times) / core.G3Units.s #1e8
             ts.append(t)
-            smurf_frame_counters.append(frame['primary'].data[fc_idx])
+            rfsoc_frame_counters.append(frame['primary'].data[fc_idx])
             frame_idxs.append(np.full(len(t), frame_idx, dtype=np.int32))
 
             self.nframes += 1
@@ -619,7 +613,7 @@ class SmurfStreamProcessor:
             raise NoScanFrames(f"{self.obs_id} has no detector data")
 
         self.times = np.hstack(ts)
-        self.smurf_frame_counters = np.hstack(smurf_frame_counters)
+        self.rfsoc_frame_counters = np.hstack(rfsoc_frame_counters)
         self.frame_idxs = np.hstack(frame_idxs)
  
         if self.min_ctime is None:
@@ -636,22 +630,11 @@ class SmurfStreamProcessor:
                 f"{self.obs_id} has time samples not increasing"
             )
         
-        timing = timing and (not self.timing_paradigm=='Low Precision')
-        
         if (not self.allow_bad_timing) and (not timing):
             raise TimingSystemOff(
                 f"Observation {self.obs_id} does not have high precision timing"
                 " information. Pass `allow_bad_timing=True` to bind anyway"
             )
-        
-        # If low-precision, we need to linearize timestamps in order for
-        # bookbinder to work properly
-        if not timing:
-            self.log.warning(
-                "Timestamps are Low Precision, linearizing from frame-counter"
-            )
-            dt, offset = np.polyfit(self.smurf_frame_counters, self.times, 1)
-            self.times = offset + dt * self.smurf_frame_counters
 
     def bind(self, outdir, times, frame_idxs, file_idxs, pbar=False, ancil=None,
              atol=1e-4):
@@ -894,7 +877,7 @@ class BookBinder:
     ancil : AncilProcessor
         Processor for ancillary data
     streams : dict
-        Dict of SmurfStreamProcessor objects, keyed by stream_id
+        Dict of RfsocStreamProcessor objects, keyed by stream_id
     times : np.ndarray
         Array of times for all samples in the book
     frame_idxs : np.ndarray
@@ -983,7 +966,7 @@ class BookBinder:
                     f"Observation {obs_id} does not have high precision timing "
                     "information. Pass `allow_bad_timing=True` to bind anyway"
                 )
-            self.streams[stream_id] = SmurfStreamProcessor(
+            self.streams[stream_id] = RfsocStreamProcessor(
                 obs_id, files, book.bid, readout_ids[obs_id], log=self.log,
                 allow_bad_timing=self.allow_bad_timing, 
                 min_ctime=self.min_ctime, max_ctime=self.max_ctime,
