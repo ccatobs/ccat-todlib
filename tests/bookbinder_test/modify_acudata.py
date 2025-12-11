@@ -26,12 +26,13 @@ def modify_time(iframe, t_offset):
             oframe[k] = iframe[k]
         #shift the time objects
         elif k in ['timestamp', 'start_time']:
-            oframe[k] = iframe[k] + t_offset/g3.G3Units.s #in seconds
-        elif k=='blocks':
-            data = iframe[k][0]
-            data['Time'] = data['Time'] + t_offset/g3.G3Units.s #in seconds
-            data.times = g3.G3VectorTime(np.array(data.times) + int(t_offset)) #in 10ns
-            oframe[k] = g3.G3VectorFrameObject([data])
+            #oframe[k] = iframe[k] + t_offset/g3.G3Units.s #in seconds
+            oframe[k] = iframe[k] + t_offset
+        #elif k=='blocks':
+            #data = iframe[k][0]
+            #data['Time'] = data['Time'] + t_offset/g3.G3Units.s #in seconds
+            #data.times = g3.G3VectorTime(np.array(data.times) + int(t_offset)) #in 10ns
+            #oframe[k] = g3.G3VectorFrameObject([data])
     return oframe
 
 def run_timeshift(files, outloc, ogtime, modtime):

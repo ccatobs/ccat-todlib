@@ -9,11 +9,11 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('-r', '--RootDir', type=str)
 parser.add_argument('-o', '--OutputDir', type=str)
-#parser.add_argument('-hk', '--HKFiles', type=list)
+parser.add_argument('-hk', '--HKFiles', type=str)
 parser.add_argument('-d', '--DetFiles', type=str)
 
 
-# making the detector files in the DetFiles folder into a dictionary
+# Making the detector files in the DetFiles folder into a dictionary
 
 args = parser.parse_args()
 g3_files = sorted(glob.glob(os.path.join(args.DetFiles, "*.g3")))
@@ -23,13 +23,17 @@ run_id = "_".join(first_name.split("_")[:-1])
 
 detfiles = {run_id: g3_files}
 
+hk_files = sorted(glob.glob(os.path.join(args.HKFiles, "*.g3")))
+if len(hk_files) == 0:
+    raise RuntimeError(f"No .g3 HK files found in {args.HKFiles}")
+
 ##################
 
 hkfields = {'az' : 'observatory.acu1.feeds.Azimuth',
             'el' : 'observatory.acu1.feeds.Elevation'}
 
-bbrun = BookBinder(args.RootDir, args.OutputDir, hkfields, [],
-                       detfiles, require_acu = False, allow_bad_timing = True) #until PTP is resolved
+bbrun = BookBinder(args.RootDir, args.OutputDir, hkfields, hk_files,
+                       detfiles, require_acu = True, allow_bad_timing = True) #until PTP is resolved
 
 bbrun.bind(pbar=True)
 
@@ -38,6 +42,7 @@ bbrun.bind(pbar=True)
 '''
 python bookbinder_testrun.py \
 -r /data/shwetha \
--o /data/shwetha/bb_output/bbv1 \
+-o /data/shwetha/bb_output/bbv2 \
+-hk /data/shwetha/hk_files/timeshifted \
 -d /data/shwetha/det_files/rfsoc01_drone1/
 '''
