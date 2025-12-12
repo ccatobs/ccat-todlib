@@ -43,6 +43,6 @@ bbrun.bind(pbar=True)
 python bookbinder_testrun.py \
 -r /data/shwetha \
 -o /data/shwetha/bb_output/bbv2 \
--hk /data/shwetha/hk_files/timeshifted \
+-hk /data/shwetha/hk_files/17655/timeshifted \
 -d /data/shwetha/det_files/rfsoc01_drone1/
 '''

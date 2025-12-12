@@ -26,13 +26,37 @@ def modify_time(iframe, t_offset):
             oframe[k] = iframe[k]
         #shift the time objects
         elif k in ['timestamp', 'start_time']:
-            #oframe[k] = iframe[k] + t_offset/g3.G3Units.s #in seconds
             oframe[k] = iframe[k] + t_offset
-        #elif k=='blocks':
-            #data = iframe[k][0]
-            #data['Time'] = data['Time'] + t_offset/g3.G3Units.s #in seconds
-            #data.times = g3.G3VectorTime(np.array(data.times) + int(t_offset)) #in 10ns
-            #oframe[k] = g3.G3VectorFrameObject([data])
+        elif k == 'blocks':
+            # copy blocks and shift their time metadata when present
+            new_blocks = []
+            for data in iframe[k]:
+                # try to make a shallow copy; fall back to original object
+                try:
+                    new_data = data.copy()
+                except Exception:
+                    new_data = data
+                # shift block.times if available (G3VectorTime)
+                if hasattr(data, 'times'):
+                    arr = np.asarray(data.times)
+                    if arr.size > 0:
+                        try:
+                            new_data.times = g3.G3VectorTime(
+                                arr + t_offset * g3.G3Units.s
+                            )
+                        except Exception:
+                            # on any conflict, leave times untouched
+                            pass
+                    # if empty, leave untouched to avoid sample-length conflicts
+                # shift "Time" field (seconds) if present
+                if 'Time' in data:
+                    try:
+                        new_data['Time'] = data['Time'] + t_offset
+                    except Exception:
+                        # leave Time untouched on conflicts
+                        pass
+                new_blocks.append(new_data)
+            oframe[k] = g3.G3VectorFrameObject(new_blocks)
     return oframe
 
 def run_timeshift(files, outloc, ogtime, modtime):

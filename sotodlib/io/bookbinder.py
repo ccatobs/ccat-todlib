@@ -165,8 +165,8 @@ class HkDataField:
         spl = address.split('.')
         instance_id, feed = spl[1], spl[3]
         #check for correct data feed
-        #if instance_id != self.instance_id or feed != self.feed:
-        #    return
+        if instance_id != self.instance_id or feed != self.feed:
+            return
         
         for block in frame['blocks']:
             if self.field not in block:
@@ -321,7 +321,7 @@ class AncilProcessor:
 
         # Look for ACU fields that are configured but not found in HK data files
         # will not check fields that are NOT in the configuration file.
-        #for fld in ['az', 'el', 'boresight']:
+        # for fld in ['az', 'el', 'boresight']:
         for fld in ['az', 'el']:
             f = getattr(self.hkdata, fld)
             if f is not None:
