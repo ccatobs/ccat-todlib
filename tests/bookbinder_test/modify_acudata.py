@@ -31,12 +31,10 @@ def modify_time(iframe, t_offset):
             # copy blocks and shift their time metadata when present
             new_blocks = []
             for data in iframe[k]:
-                # try to make a shallow copy; fall back to original object
-                try:
-                    new_data = data.copy()
-                except Exception:
-                    new_data = data
-                # shift block.times if available (G3VectorTime)
+                # Create a new G3TimesampleMap and copy all fields
+                new_data = g3.G3TimesampleMap()
+                
+                # First set the shifted times, then copy data fields
                 if hasattr(data, 'times'):
                     arr = np.asarray(data.times)
                     if arr.size > 0:
@@ -44,19 +42,19 @@ def modify_time(iframe, t_offset):
                             new_data.times = g3.G3VectorTime(
                                 arr + t_offset * g3.G3Units.s
                             )
-                        except Exception:
-                            # on any conflict, leave times untouched
-                            pass
-                    # if empty, leave untouched to avoid sample-length conflicts
-                # shift "Time" field (seconds) if present
-                if 'Time' in data:
-                    try:
-                        new_data['Time'] = data['Time'] + t_offset
-                    except Exception:
-                        # leave Time untouched on conflicts
-                        pass
+                        except Exception as e:
+                            # if shift fails, keep original times
+                            new_data.times = data.times
+                    else:
+                        # preserve empty times
+                        new_data.times = data.times
+                
+                # Now copy all data fields (after times is set)
+                for field_name in data.keys():
+                    new_data[field_name] = data[field_name]
+                
                 new_blocks.append(new_data)
-            oframe[k] = g3.G3VectorFrameObject(new_blocks)
+            oframe[k] = g3.G3VectorFrameObject(new_blocks)    
     return oframe
 
 def run_timeshift(files, outloc, ogtime, modtime):

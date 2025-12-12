@@ -1,6 +1,7 @@
 from modify_acudata import *
 from datetime import datetime
 import spt3g.core as core
+import numpy as np
 
 
 det_file = '/data/shwetha/det_files/rfsoc01_drone1/r01d1_1755824003_000.g3'
@@ -10,51 +11,64 @@ acu_file = '/data/shwetha/hk_files/17655/1765561579.g3'
 outloc = '/data/shwetha/hk_files/17655/timeshifted'
 outfile = '/1765561579_m.g3'
 
-# --- ACU ---
+# --- ACU: Get actual data block times ---
 g3f = g3.G3File(acu_file)
-frame = g3f.next()
-acu_start = frame['start_time']
-print("ACU start time :", acu_start)
+acu_data_times = []
+for fr in g3f:
+    if 'blocks' in fr:
+        for blk in fr['blocks']:
+            if hasattr(blk, 'times'):
+                acu_data_times.extend(np.array(blk.times) / g3.G3Units.s)
+if not acu_data_times:
+    raise RuntimeError("No ACU data block times found!")
+acu_start = min(acu_data_times)
+print("ACU data start time :", acu_start)
 
-# --- DETECTOR ---
+# --- DETECTOR: Get actual scan frame times ---
 g3f = g3.G3File(det_file)
-frame = g3f.next()
-det_time = frame['time']
-# Convert G3Time to UNIX time
-det_unix_time = det_time.time / 1e8
+det_times = []
+for fr in g3f:
+    if fr.type == g3.G3FrameType.Scan and 'data' in fr:
+        det_times.extend(np.array(fr['data'].times) / g3.G3Units.s)
+        break  # Just need first scan
+if not det_times:
+    raise RuntimeError("No detector scan times found!")
+det_start = min(det_times)
+print("Detector data start time :", det_start)
 
-print("Detector start time :", det_unix_time)
-
-# ist of acu g3 files to be modified
+# List of acu g3 files to be modified
 flist = [acu_file]
 
-# original start time of the acu simulated data streams
-otime = acu_start
+# Compute offset to align ACU data start with detector data start
+offset = det_start - acu_start
 
-# original start time of the detector data streams, acu times will be shifted to
-# this time window
-mtime = det_unix_time
+print(f"Computed offset: {offset:.1f} seconds ({offset/86400:.2f} days)")
 
-run_timeshift(flist, outloc, otime, mtime)
+# Apply timeshift
+run_timeshift(flist, outloc, acu_start, det_start)
 
-offset = mtime - otime
-print("Time shift has been offset by:", offset)
+print(f"\nTime shift applied: offset = {offset:.1f} seconds")
 
-# --- ACU ---
-
+# --- Verify shifted ACU file ---
 shifted_acu_file = outloc + outfile
 g3f = g3.G3File(shifted_acu_file)
-frame = g3f.next()
-print("New ACU start time :", frame['start_time'])
+shifted_data_times = []
+for fr in g3f:
+    if 'blocks' in fr:
+        for blk in fr['blocks']:
+            if hasattr(blk, 'times'):
+                shifted_data_times.extend(np.array(blk.times) / g3.G3Units.s)
+if shifted_data_times:
+    shifted_start = min(shifted_data_times)
+    shifted_end = max(shifted_data_times)
+    print(f"Shifted ACU data start time: {shifted_start} ({datetime.utcfromtimestamp(shifted_start)})")
+    print(f"Shifted ACU data end time:   {shifted_end} ({datetime.utcfromtimestamp(shifted_end)})")
+    print(f"Detector data start time:    {det_start} ({datetime.utcfromtimestamp(det_start)})")
+    
+    if shifted_start <= det_start <= shifted_end:
+        print("✓ Shifted ACU data covers detector start time")
+    else:
+        print("✗ Warning: Shifted ACU data may not overlap with detector data")
 
-# --- DETECTOR ---
-g3f = g3.G3File(det_file)
-frame = g3f.next()
-det_time = frame['time']
-
-# Convert G3Time → UNIX time
-det_unix_time = det_time.time / 1e8
-
-print("Detector start time :", det_unix_time)
 
 

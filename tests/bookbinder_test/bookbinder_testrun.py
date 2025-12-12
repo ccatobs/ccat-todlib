@@ -29,8 +29,8 @@ if len(hk_files) == 0:
 
 ##################
 
-hkfields = {'az' : 'observatory.acu1.feeds.Azimuth',
-            'el' : 'observatory.acu1.feeds.Elevation'}
+hkfields = {'az' : 'observatory.acu.acu_udp_stream.Azimuth',
+            'el' : 'observatory.acu.acu_udp_stream.Elevation'}
 
 bbrun = BookBinder(args.RootDir, args.OutputDir, hkfields, hk_files,
                        detfiles, require_acu = True, allow_bad_timing = True) #until PTP is resolved
